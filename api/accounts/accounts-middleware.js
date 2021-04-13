@@ -1,38 +1,60 @@
 const Accounts = require('./accounts-model')
+const db = require('../../data/db-config')
 
 exports.checkAccountPayload = (req, res, next) => {
-  // DO YOUR MAGIC
+  const err = { status: 400}
+  const {name, budget} = req.body
 
-  if(!req.body.name || !req.body.budget){
-    res.status(400).json({ message: "name and budget are required" })
-  }else if(typeof(req.params.name) !== 'string'){
-    res.status(400).json({ message: "name of account must be a string" })
-  }else if(!req.body.name.trim().length < 3 || !req.params.body.trim().length > 100 ){
-    res.status(400).json({ message: "name of account must be between 3 and 100" })
-  }else if(typeof(req.params.budget) !== 'number'){
-    res.status(400).json({ message: "budget of account must be a number" })
-  }else if(req.params.budget < 0 || req.params.budget > 1000000){
-    res.status(400).json({ message: "budget of account is too large or too small" })
+  if(name === undefined || budget === undefined){
+    err.message = 'name and budget are required'
+    next(err)
+  }else if(typeof name !== 'string'){
+    err.message = 'name of account must be a string'
+    next(err)
+  }else if(name.trim().length < 3 || name.trim().length > 100){
+    err.message = 'name of account must be between 3 and 100'
+    next(err)
+  }else if(typeof budget !== 'number' || isNaN(budget)){
+    err.message = 'budget of account must be a number'
+    next(err)
+  }else if (budget < 0 || budget > 1000000){
+    err.message = 'budget of account is too large or too small'
+    next(err)
   }
 
-  next()
+  if(err.message){
+    next(err)
+  }else{
+    next()
+  }
 
 }
 
-exports.checkAccountNameUnique = (req, res, next) => {
-  // DO YOUR MAGIC
+exports.checkAccountNameUnique = async (req, res, next) => {
+  try {
+    const data = await db('accounts').where('name',req.body.name.trim()).first()
+
+    if(data){
+      next({status:400, message: 'that name is taken'})
+    }else{
+      next()
+    }
+
+  } catch (err) {
+    next(err)
+  }
 }
 
 exports.checkAccountId = async (req, res, next) => {
   // DO YOUR MAGIC
   try {
-    const account = Accounts.getById(req.params.id)
+    const account = await Accounts.getById(req.params.id)
 
     if(account){
       req.account = account
       next()
     }else{
-      res.status(404).json({message: 'sorry the account doesnt exist'})
+      next({status: 404, message: 'account not found'})
     }
 
   } catch (err) {
